@@ -52,7 +52,10 @@ inventée ici. Aucun ContactSensor n'est exposé.
 
 ## Préparation du Shelly
 
-Le composant Enum doit **déjà exister** avec les valeurs `arret`, `auto`, `force`.
+Un composant virtuel de type Enum doit **déjà exister** sur le Shelly sous
+l'identifiant `enum:200`. Dans l'installation documentée, il est persistant,
+sa valeur par défaut est `auto` et ses options techniques exactes sont `auto`,
+`force`, `arret`.
 Le plugin ne crée ni ne reconfigure de composant et ne touche pas au script.
 Le Shelly doit être accessible en HTTP/WebSocket sur le réseau local.
 

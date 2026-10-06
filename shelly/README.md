@@ -23,9 +23,38 @@ plugin Homebridge se limite à sélectionner le mode et lire l'état.
 
 | Composant | Utilisation |
 |---|---|
-| `enum:200` | Valeurs exactes `auto`, `force`, `arret` |
+| `enum:200` | Composant virtuel Enum persistant, valeurs exactes `auto`, `force`, `arret`, valeur par défaut `auto` |
 | `input:0` | Entrée indiquant HP/HC : `state === true` signifie HC |
 | `switch:0` | Relais piloté par le script |
+
+### Composant virtuel de sélection du mode
+
+Un composant virtuel a été créé manuellement dans l'interface du Shelly avec
+les propriétés suivantes :
+
+| Propriété | Valeur |
+|---|---|
+| Type | Enum |
+| ID | `200` |
+| Persistance | Activée |
+| Valeur par défaut | `auto` |
+| Options | `auto`, `force`, `arret` |
+
+Les options sont des identifiants techniques sensibles à la casse et doivent
+rester exactement en minuscules, sans accent ni espace. Les libellés affichés
+dans Apple Maison sont configurés séparément dans Homebridge; ils ne modifient
+pas les valeurs techniques stockées dans le Shelly.
+
+Le composant peut être vérifié par l'API RPC en lecture seule :
+
+```text
+http://ADRESSE_DU_SHELLY/rpc/Enum.GetConfig?id=200
+http://ADRESSE_DU_SHELLY/rpc/Enum.GetStatus?id=200
+```
+
+Le script récupère ce composant avec `Virtual.getHandle("enum:200")` et refuse
+de démarrer s'il est absent. Ni le script fourni ni le plugin Homebridge ne
+créent ou ne reconfigurent automatiquement ce composant.
 
 Les IDs sont codés en dur dans le script. Modifier `enumId` ou `switchId` dans
 Homebridge ne modifie pas ce script. La polarité de l'entrée doit correspondre
@@ -59,8 +88,9 @@ uniquement pour ajouter le plugin.
 Pour une nouvelle installation, après validation matérielle :
 
 1. Sauvegarder les scripts et paramètres existants du Shelly.
-2. Vérifier que `enum:200` existe avec les trois valeurs exactes attendues.
-   Le script et le plugin ne créent pas ce composant.
+2. Dans les composants virtuels du Shelly, créer ou vérifier le composant Enum
+   décrit ci-dessus : ID `200`, persistant, valeur par défaut `auto`, options
+   exactes `auto`, `force`, `arret`. Le script et le plugin ne le créent pas.
 3. Vérifier la configuration et la polarité de `input:0`, ainsi que l'absence
    de scripts, horaires ou commandes automatiques concurrents sur `switch:0`.
 4. Dans l'interface locale Shelly, créer un script et y copier
