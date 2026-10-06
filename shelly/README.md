@@ -13,7 +13,8 @@ plugin Homebridge se limite à sélectionner le mode et lire l'état.
 
 - Matériel déclaré : Shelly 1 Gen4.
 - Version de référence : script initial fourni avec le projet 1.0.0.
-- Version exacte du firmware : non communiquée, à renseigner après validation.
+- Firmware installé daté du 23 septembre 2026. Le numéro de version ou de build
+  exact n'a pas été communiqué.
 - Le script a été communiqué comme celui installé sur le Shelly; son exécution
   et le câblage n'ont pas été vérifiés sur le matériel par les tests du plugin.
 - Les tests du plugin utilisent une simulation de l'API Shelly, pas ce script.
@@ -96,15 +97,44 @@ HP → HC depuis Force : le mode doit devenir Auto et le relais rester ON.
 Vérifier également le redémarrage du Shelly, les paramètres de persistance,
 le lancement automatique du script et la reprise de l'entrée.
 
-## Documentation du contacteur : informations encore nécessaires
+## Câblage déclaré de l'installation existante
 
-Ce projet ne contient pas encore de schéma de câblage validé. Pour documenter
-l'installation exacte, il faut les références du contacteur et du chauffe-eau,
-la tension de commande de la bobine, les notices officielles et le schéma existant.
+Le propriétaire décrit le chemin de commande ainsi :
 
-Le relais du Shelly est ici décrit comme commandant le contacteur, et non comme
-alimentant directement la résistance du chauffe-eau. Le code ne valide ni le
-dimensionnement électrique, ni les protections, ni le câblage.
+```text
+Linky C2 ──> Shelly SW
+Shelly O ──> contacteur A2
+```
+
+`O` désigne ici la **lettre O**, borne de sortie du Shelly, et non le chiffre zéro.
+Cette notation décrit deux connexions déclarées; elle ne signifie pas que le
+Shelly transmet électriquement C2 de SW vers O. Le fonctionnement interne et
+l'alimentation du relais dépendent du câblage complet et de la configuration
+du Shelly.
+
+Le contacteur comporte une bobine de commande qui actionne ses contacts de
+puissance pour le chauffe-eau. Le Shelly commande cette bobine via son relais;
+il n'est pas décrit comme alimentant directement la résistance du chauffe-eau.
+
+Cette description est volontairement partielle : les connexions Linky C1,
+contacteur A1, alimentation du Shelly, borne I du relais, neutre/phase,
+protections et circuit de puissance du chauffe-eau n'ont pas été fournis et
+ne doivent pas être déduits de ce document.
+
+## Informations matérielles encore nécessaires
+
+Ce projet ne contient pas de schéma électrique complet ou validé. Pour documenter
+l'installation exacte, il faut encore :
+
+- la référence et la notice du contacteur;
+- la tension et la nature AC/DC de sa bobine;
+- la référence du chauffe-eau;
+- les références et calibres des protections;
+- le schéma électrique complet existant;
+- le numéro exact de version/build du firmware Shelly.
+
+Le code et les tests ne valident ni le dimensionnement électrique, ni les
+protections, ni le câblage.
 
 Ne pas intervenir sur le secteur à partir de cette documentation logicielle.
 Le câblage doit respecter les notices du matériel et être réalisé ou vérifié
