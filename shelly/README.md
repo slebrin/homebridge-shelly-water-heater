@@ -102,8 +102,18 @@ le lancement automatique du script et la reprise de l'entrée.
 Le propriétaire décrit le chemin de commande ainsi :
 
 ```text
-Linky C2 ──> Shelly SW
-Shelly O ──> contacteur A2
+Alimentation 230 V AC :
+  neutre ────────────────> Shelly N
+  phase ───────┬─────────> Shelly L
+               └─────────> Shelly I
+
+Commande :
+  Linky C2 ──────────────> Shelly SW
+  Shelly O ──────────────> contacteur A2
+
+Protections déclarées :
+  circuit de commande / bobine ──> disjoncteur 2 A
+  circuit de puissance chauffe-eau ──> disjoncteur 20 A
 ```
 
 `O` désigne ici la **lettre O**, borne de sortie du Shelly, et non le chiffre zéro.
@@ -115,11 +125,18 @@ du Shelly.
 Le contacteur comporte une bobine de commande qui actionne ses contacts de
 puissance pour le chauffe-eau. Le Shelly commande cette bobine via son relais;
 il n'est pas décrit comme alimentant directement la résistance du chauffe-eau.
+Dans cette installation, la phase alimente à la fois `L` (alimentation du Shelly)
+et `I` (commun du relais); lorsque `switch:0` est ON, le relais relie `I` à `O`
+pour appliquer la phase à `A2`, sous réserve du câblage complet non reproduit ici.
 
-Cette description est volontairement partielle : les connexions Linky C1,
-contacteur A1, alimentation du Shelly, borne I du relais, neutre/phase,
-protections et circuit de puissance du chauffe-eau n'ont pas été fournis et
-ne doivent pas être déduits de ce document.
+Les calibres 2 A et 20 A décrivent cette installation; ils ne constituent pas
+une recommandation universelle. Leur adéquation dépend notamment des conducteurs,
+du contacteur, du chauffe-eau, des protections amont et des normes applicables.
+
+Cette description reste volontairement partielle : les connexions Linky C1 et
+contacteur A1, les références des protections, ainsi que le circuit de puissance
+complet du chauffe-eau n'ont pas été fournis et ne doivent pas être déduits de
+ce document.
 
 ## Informations matérielles encore nécessaires
 
@@ -127,9 +144,11 @@ Ce projet ne contient pas de schéma électrique complet ou validé. Pour docume
 l'installation exacte, il faut encore :
 
 - la référence et la notice du contacteur;
-- la tension et la nature AC/DC de sa bobine;
+- la tension nominale exacte indiquée sur sa bobine (l'installation est alimentée
+  en 230 V AC, mais la référence de la bobine n'a pas été communiquée);
 - la référence du chauffe-eau;
-- les références et calibres des protections;
+- les références des disjoncteurs 2 A et 20 A;
+- les connexions de Linky C1 et du contacteur A1;
 - le schéma électrique complet existant;
 - le numéro exact de version/build du firmware Shelly.
 
