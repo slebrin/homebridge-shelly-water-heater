@@ -56,6 +56,11 @@ Le composant Enum doit **déjà exister** avec les valeurs `arret`, `auto`, `for
 Le plugin ne crée ni ne reconfigure de composant et ne touche pas au script.
 Le Shelly doit être accessible en HTTP/WebSocket sur le réseau local.
 
+Le [script Shelly et son guide](./shelly/README.md) sont disponibles dans le dépôt
+[GitHub](https://github.com/slebrin/homebridge-shelly-water-heater/tree/main/shelly).
+Ils documentent la logique existante et son installation manuelle; le plugin
+ne les exécute pas. Le câblage du contacteur reste à valider selon le matériel exact.
+
 Cette version ne prend pas en charge l'authentification Digest Shelly :
 un appareil protégé renvoie une erreur explicite et apparaît indisponible,
 sans commande envoyée après cet échec. À utiliser uniquement sur un réseau local
