@@ -1,0 +1,34 @@
+{
+  "name": "homebridge-shelly-water-heater",
+  "version": "1.0.0",
+  "description": "Shelly virtual Enum water heater modes with a read-only relay indicator for HomeKit",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slebrin/homebridge-shelly-water-heater.git"
+  },
+  "bugs": {
+    "url": "https://github.com/slebrin/homebridge-shelly-water-heater/issues"
+  },
+  "homepage": "https://github.com/slebrin/homebridge-shelly-water-heater#readme",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "config.schema.json", "config.example.json", "README.md", "LICENSE"],
+  "keywords": ["homebridge-plugin", "shelly", "water-heater", "homekit"],
+  "engines": {
+    "node": ">=24.0.0",
+    "homebridge": "^1.8.0 || ^2.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.cjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.0",
+    "homebridge": "^1.11.0",
+    "typescript": "^5.9.0",
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

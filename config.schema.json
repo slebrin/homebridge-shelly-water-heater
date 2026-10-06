@@ -1,0 +1,27 @@
+{
+  "pluginAlias": "ShellyWaterHeater",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Un accessoire TV externe avec trois modes et un indicateur de chauffe en lecture seule. Appairage séparé dans Maison. Le relais n'est jamais commandé.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "title": "Nom", "type": "string", "default": "Chauffe-eau", "minLength": 1, "maxLength": 64 },
+      "host": { "title": "IP ou nom local du Shelly", "type": "string", "default": "192.168.1.235", "minLength": 1 },
+      "enumId": { "title": "ID du composant Enum", "type": "integer", "default": 200, "minimum": 200, "maximum": 299 },
+      "switchId": { "title": "ID du relais (lecture seule)", "type": "integer", "default": 0, "minimum": 0, "maximum": 255 },
+      "pollInterval": { "title": "Polling de secours (secondes)", "type": "integer", "default": 10, "minimum": 1, "maximum": 3600 },
+      "rpcTimeout": { "title": "Timeout RPC (secondes)", "type": "integer", "default": 5, "minimum": 1, "maximum": 60 },
+      "states": {
+        "title": "Intitulés des modes",
+        "type": "object",
+        "properties": {
+          "arret": { "title": "Arrêt", "type": "string", "default": "Arrêt", "minLength": 1, "maxLength": 64 },
+          "auto": { "title": "Auto", "type": "string", "default": "Auto", "minLength": 1, "maxLength": 64 },
+          "force": { "title": "Marche forcée", "type": "string", "default": "Marche forcée", "minLength": 1, "maxLength": 64 }
+        }
+      }
+    },
+    "required": ["host"]
+  }
+}

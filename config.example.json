@@ -1,0 +1,17 @@
+{
+  "platforms": [
+    {
+      "platform": "ShellyWaterHeater",
+      "name": "Chauffe-eau",
+      "host": "192.168.1.235",
+      "enumId": 200,
+      "switchId": 0,
+      "pollInterval": 10,
+      "states": {
+        "arret": "Arrêt",
+        "auto": "Auto",
+        "force": "Marche forcée"
+      }
+    }
+  ]
+}
