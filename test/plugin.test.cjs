@@ -134,10 +134,12 @@ test('10. Perte puis retour connexion : refus de commande et resynchronisation',
   assert.equal(heater.indicator.getCharacteristic(C.On).value, false);
 });
 
-test('Switch strictement read-only : HAP rejette ON/OFF sans RPC', async t => {
+test('Switch visible en tuile : toute commande HAP est refusee sans RPC', async t => {
   const { sim, heater } = await fixture(t);
   const on = heater.indicator.getCharacteristic(C.On);
-  assert.deepEqual(on.props.perms, [C.Perms.PAIRED_READ, C.Perms.NOTIFY]);
+  assert.deepEqual(on.props.perms, [
+    C.Perms.PAIRED_READ, C.Perms.PAIRED_WRITE, C.Perms.NOTIFY,
+  ]);
   const count = sim.requests.length;
   for (const value of [true, false]) {
     const result = await heater.networkWrite(on, value);

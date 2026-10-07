@@ -1,6 +1,6 @@
 {
   "name": "homebridge-shelly-water-heater",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Shelly virtual Enum water heater modes with a read-only relay indicator for HomeKit",
   "repository": {
     "type": "git",

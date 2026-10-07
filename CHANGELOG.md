@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 - 2026-10-07
+
+- Le Switch annonce la permission d'écriture requise par Apple Maison pour
+  apparaître comme une tuile dans la vue Pièce.
+- Toute commande sur cette tuile reste systématiquement refusée avec
+  `READ_ONLY_CHARACTERISTIC`.
+- Aucun `Switch.Set` n'est envoyé au Shelly.
+
 ## 1.1.0 - 2026-10-07
 
 - Le bouton principal Television sélectionne Arrêt lorsqu'il passe à OFF.

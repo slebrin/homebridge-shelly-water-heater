@@ -25,8 +25,9 @@ Le plugin publie deux accessoires HomeKit distincts :
   Homebridge. Sa vignette peut être ajoutée séparément aux favoris. Son `On`
   reflète seulement le booléen `output` de `switch:0` : ON = relais fermé,
   OFF = relais ouvert.
-  Permissions HAP : lecture et notifications, **sans écriture**. Une tentative
-  d'écriture réseau est rejetée par HAP avec `READ_ONLY_CHARACTERISTIC`.
+  Pour que Maison lui attribue une tuile dans la vue Pièce, HAP annonce la
+  permission d'écriture, mais le plugin rejette systématiquement toute commande
+  avec `READ_ONLY_CHARACTERISTIC`.
 
 ### Limites à connaître
 
@@ -37,9 +38,10 @@ Le plugin publie deux accessoires HomeKit distincts :
 - La TV et l'indicateur sont volontairement deux accessoires : cela évite le
   résumé natif « Toutes activées » des services regroupés et permet de placer
   l'indicateur seul dans les favoris et dans la vue d'ensemble de Maison.
-- Maison peut afficher le Switch comme touchable, même en lecture seule.
-  Un appui peut provoquer une erreur ou un affichage optimiste temporaire.
-  **Il ne peut pas commander le relais.** Ne pas compter sur un bouton grisé.
+- Le Switch paraît touchable afin que Maison le conserve sous forme de tuile.
+  Un appui provoque une erreur ou un affichage optimiste temporaire, puis l'état
+  réel est restauré. **Il ne peut commander ni le relais ni l'Enum** : le client
+  RPC interdit toujours `Switch.Set`.
 - `ConfiguredName` permet les noms de sources, mais Maison peut les mettre en
   cache ou les renommer. Les renommages dans Maison sont acceptés pendant la
   session; la configuration est réappliquée au redémarrage. Des versions de tvOS

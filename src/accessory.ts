@@ -150,10 +150,10 @@ export class HeatingIndicatorAccessory {
       ?? accessory.addService(S.Switch, `${settings.name} - En chauffe`, 'heating');
     this.indicator.setPrimaryService();
     this.indicator.getCharacteristic(C.On)
-      .setProps({ perms: [C.Perms.PAIRED_READ, C.Perms.NOTIFY] })
+      .setProps({ perms: [C.Perms.PAIRED_READ, C.Perms.PAIRED_WRITE, C.Perms.NOTIFY] })
       .onGet(() => this.requireState())
       .onSet(() => {
-        // Defence in depth for local callers; HAP rejects network writes before this handler.
+        // Apple Home needs write permission to show a room tile; every write is still rejected.
         log.warn('Indicateur de chauffe en lecture seule; commande refusee.');
         throw new api.hap.HapStatusError(api.hap.HAPStatus.READ_ONLY_CHARACTERISTIC);
       });
