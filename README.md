@@ -13,9 +13,13 @@ et ne réalise pas la transition Force vers Auto. Aucun MQTT.
 
 Un seul accessoire externe nommé **Chauffe-eau** :
 
-- Un service `Television` avec exactement trois `InputSource` liés :
-  Arrêt, Auto, Marche forcée. Les noms viennent de `states` dans la configuration
-  via `ConfiguredName`. Identifiants stables : 1 = arret, 2 = auto, 3 = force.
+- Un service `Television` dont le bouton principal pilote le mode :
+  OFF sélectionne `arret`; ON depuis Arrêt sélectionne `auto`. En Auto ou Force,
+  le bouton reste ON. Il ne représente pas la chauffe réelle.
+- Deux `InputSource` liés permettent de choisir Auto ou Marche forcée. Leurs noms
+  viennent de `states.auto` et `states.force` via `ConfiguredName`. Les identifiants
+  historiques 2 = auto et 3 = force sont conservés. Arrêt n'est plus une source :
+  il est commandé par le bouton principal.
 - Un service `Switch` nommé **Chauffe-eau - En chauffe**. Son `On` reflète seulement
   le booléen `output` de `switch:0` : ON = relais fermé, OFF = relais ouvert.
   Permissions HAP : lecture et notifications, **sans écriture**. Une tentative
@@ -23,10 +27,15 @@ Un seul accessoire externe nommé **Chauffe-eau** :
 
 ### Limites à connaître
 
-- L'accessoire utilise l'interface **TV**, pas un thermostat. Le bouton alimentation
-  TV n'est pas l'indicateur de chauffe : il reste actif pour que le sélecteur de
-  sources soit accessible, y compris en mode Arrêt. L'extinction TV est refusée;
-  sélectionner **Arrêt** pour changer le mode. Les touches télécommande sont refusées.
+- L'accessoire utilise l'interface **TV**, pas un thermostat. En mode Arrêt,
+  Maison considère la TV éteinte et peut désactiver le sélecteur de sources.
+  Rallumer le bouton sélectionne d'abord Auto; Marche forcée peut ensuite être
+  choisie dans les sources. Les touches télécommande sont refusées.
+- Dans Maison, utiliser **Afficher comme vignettes séparées**. Lorsque Television
+  et Switch sont regroupés, Maison peut remplacer le nom du mode par son résumé
+  natif « Toutes activées ». Ce texte n'est pas émis par le plugin et ne peut pas
+  être personnalisé. Avec les vignettes séparées, Auto et Marche forcée gardent
+  leurs intitulés, et la chauffe réelle apparaît sur sa propre vignette.
 - Maison peut afficher le Switch comme touchable, même en lecture seule.
   Un appui peut provoquer une erreur ou un affichage optimiste temporaire.
   **Il ne peut pas commander le relais.** Ne pas compter sur un bouton grisé.
@@ -79,11 +88,10 @@ npm test
 npm pack
 ```
 
-Installer le fichier `homebridge-shelly-water-heater-1.0.0.tgz` sur la machine
-Homebridge, par exemple avec :
+Installer le plugin publié sur npm :
 
 ```sh
-npm install -g ./homebridge-shelly-water-heater-1.0.0.tgz
+npm install -g homebridge-shelly-water-heater
 ```
 
 Utiliser le compte et le préfixe npm employés par votre installation Homebridge.
@@ -131,7 +139,7 @@ nouvelle identité HomeKit et nécessite un nouvel appairage.
 | switchId | 0 | ID du relais à lire |
 | pollInterval | 10 | Polling permanent de secours, en secondes |
 | rpcTimeout | 5 | Timeout par appel RPC, en secondes |
-| states.arret / auto / force | Arrêt / Auto / Marche forcée | Noms des sources |
+| states.arret / auto / force | Arrêt / Auto / Marche forcée | Libellés des logs; Auto et Force nomment aussi les sources |
 
 Les noms sont limités à 64 octets UTF-8. Éviter de longs timeouts : Maison possède
 aussi son propre délai de réponse, indépendamment du timeout Shelly.
@@ -178,10 +186,10 @@ les notifications partielles, le polling, les redémarrages et les erreurs.
 
 À vérifier également sur l'installation réelle :
 
-1. Arrêt → Enum arret, relais OFF.
-2. Auto en HP → Enum auto, relais OFF.
+1. Bouton principal OFF → Enum arret, relais OFF.
+2. Bouton principal ON depuis Arrêt → Enum auto; en HP, relais OFF.
 3. Auto en HC → Enum auto, relais ON.
-4. Marche forcée → Enum force, relais ON.
+4. Source Marche forcée → Enum force, relais ON et bouton principal toujours ON.
 5. Le script Shelly fait force → auto en HC, relais reste ON.
 6. Changer le mode dans l'UI Shelly → source active mise à jour dans Maison.
 7. Choisir une source dans Maison → Enum mis à jour dans Shelly.
@@ -189,6 +197,14 @@ les notifications partielles, le polling, les redémarrages et les erreurs.
 9. Redémarrer Homebridge → état réel restauré, sans écriture.
 10. Déconnecter/reconnecter le Shelly → indisponibilité puis resynchronisation.
 11. Toucher l'indicateur → aucune écriture Enum ou relais, même si Maison montre une erreur.
+
+## Mise à niveau depuis 1.0.0
+
+La version 1.1.0 retire Arrêt des sources et affecte cette action au bouton
+principal Television. Redémarrer Homebridge après la mise à niveau. Si Maison
+conserve l'ancienne source Arrêt en cache, supprimer puis réappairer l'accessoire
+TV externe. Il faudra alors réappliquer la pièce, les favoris et le réglage
+**Afficher comme vignettes séparées**.
 
 ## Références
 

@@ -1,7 +1,12 @@
 import type { API, CharacteristicValue, Logging, PlatformAccessory, Service } from 'homebridge';
 import { HeaterController } from './controller';
 import { errorMessage } from './client';
-import { MODES, type Mode, type Settings } from './config';
+import type { Mode, Settings } from './config';
+
+const INPUTS = [
+  { mode: 'auto', identifier: 2 },
+  { mode: 'force', identifier: 3 },
+] as const;
 
 export class HeaterAccessory {
   readonly controller: HeaterController;
@@ -27,15 +32,18 @@ export class HeaterAccessory {
       .setCharacteristic(C.ConfiguredName, settings.name)
       .setCharacteristic(C.SleepDiscoveryMode, C.SleepDiscoveryMode.ALWAYS_DISCOVERABLE);
 
-    // TV power is not relay power. Keep the mode selector available in every mode.
     this.television.getCharacteristic(C.Active)
-      .onGet(() => { this.requireState(); return C.Active.ACTIVE; })
-      .onSet(value => {
-        if (value !== C.Active.ACTIVE) {
-          log.warn('Le bouton alimentation TV ne commande pas le chauffe-eau; utilisez les modes.');
-          throw new api.hap.HapStatusError(api.hap.HAPStatus.READ_ONLY_CHARACTERISTIC);
+      .onGet(() => this.requireState().mode === 'arret' ? C.Active.INACTIVE : C.Active.ACTIVE)
+      .onSet(async value => {
+        if (value !== C.Active.ACTIVE && value !== C.Active.INACTIVE) {
+          throw new api.hap.HapStatusError(api.hap.HAPStatus.INVALID_VALUE_IN_REQUEST);
         }
-        this.requireState();
+        const state = this.requireState();
+        const target = value === C.Active.ACTIVE ? 'auto' : 'arret';
+        if ((target === 'auto' && state.mode !== 'arret') || state.mode === target) {
+          return;
+        }
+        await this.setModeFromHomeKit(target);
       });
     this.television.getCharacteristic(C.ActiveIdentifier)
       .onGet(() => this.identifier(this.requireState().mode))
@@ -45,15 +53,7 @@ export class HeaterAccessory {
           log.warn(`Identifiant de mode HomeKit invalide : ${String(value)}`);
           throw new api.hap.HapStatusError(api.hap.HAPStatus.INVALID_VALUE_IN_REQUEST);
         }
-        try {
-          await this.controller.setMode(mode);
-        } catch (error) {
-          log.warn(`Commande HomeKit refusee : ${errorMessage(error)}`);
-          throw new api.hap.HapStatusError(api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-        } finally {
-          // HAP caches the requested value after onSet; restore the confirmed Shelly state.
-          setImmediate(() => this.publish());
-        }
+        await this.setModeFromHomeKit(mode);
       });
     this.television.getCharacteristic(C.RemoteKey).onSet(() => {
       log.warn('Commande telecommande TV non prise en charge.');
@@ -63,10 +63,10 @@ export class HeaterAccessory {
       log.warn(`Renommage TV dans Maison (${String(value)}); config name reappliquee au redemarrage.`);
     });
 
-    MODES.forEach((mode, index) => {
+    INPUTS.forEach(({ mode, identifier }) => {
       const input = accessory.addService(S.InputSource, settings.states[mode], `input-${mode}`);
       input
-        .setCharacteristic(C.Identifier, index + 1)
+        .setCharacteristic(C.Identifier, identifier)
         .setCharacteristic(C.ConfiguredName, settings.states[mode])
         .setCharacteristic(C.InputSourceType, C.InputSourceType.OTHER)
         .setCharacteristic(C.IsConfigured, C.IsConfigured.CONFIGURED)
@@ -104,11 +104,23 @@ export class HeaterAccessory {
   }
 
   private identifier(mode: Mode): number {
-    return MODES.indexOf(mode) + 1;
+    return mode === 'force' ? 3 : 2;
   }
 
   private mode(value: CharacteristicValue): Mode | undefined {
-    return typeof value === 'number' && Number.isInteger(value) ? MODES[value - 1] : undefined;
+    return value === 2 ? 'auto' : value === 3 ? 'force' : undefined;
+  }
+
+  private async setModeFromHomeKit(mode: Mode): Promise<void> {
+    try {
+      await this.controller.setMode(mode);
+    } catch (error) {
+      this.log.warn(`Commande HomeKit refusee : ${errorMessage(error)}`);
+      throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    } finally {
+      // HAP caches the requested value after onSet; restore the confirmed Shelly state.
+      setImmediate(() => this.publish());
+    }
   }
 
   publish(): void {
@@ -121,7 +133,10 @@ export class HeaterAccessory {
       this.indicator.getCharacteristic(C.On).updateValue(error);
       return;
     }
-    this.television.updateCharacteristic(C.Active, C.Active.ACTIVE);
+    this.television.updateCharacteristic(
+      C.Active,
+      state.mode === 'arret' ? C.Active.INACTIVE : C.Active.ACTIVE,
+    );
     this.television.updateCharacteristic(C.ActiveIdentifier, this.identifier(state.mode));
     this.indicator.updateCharacteristic(C.On, state.heating);
   }

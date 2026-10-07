@@ -11,19 +11,38 @@ async function select(heater, identifier) {
   await delay(0);
 }
 
+async function setActive(heater, active) {
+  const result = await heater.networkWrite(
+    heater.television.getCharacteristic(C.Active),
+    active ? C.Active.ACTIVE : C.Active.INACTIVE,
+  );
+  assert.equal(result.status, hap.HAPStatus.SUCCESS);
+  await delay(0);
+}
+
 for (const scenario of [
-  { title: '1. Arret -> relais OFF', mode: 'arret', output: false, id: 1 },
-  { title: '2. Auto en HP -> relais OFF', mode: 'auto', output: false, id: 2 },
-  { title: '3. Auto en HC -> relais ON', mode: 'auto', output: true, id: 2 },
+  { title: '1. Arret -> relais OFF', mode: 'arret', output: false, active: false },
+  { title: '2. Auto en HP -> relais OFF', mode: 'auto', output: false, active: true },
+  { title: '3. Auto en HC -> relais ON', mode: 'auto', output: true, active: true },
   { title: '4. Marche forcee -> relais ON', mode: 'force', output: true, id: 3 },
 ]) {
   test(scenario.title, async t => {
     const { sim, heater } = await fixture(t);
+    if (scenario.active === true) {
+      sim.external('arret', false);
+      await until(() => heater.controller.snapshot.mode === 'arret');
+    }
     // The fixture, not Homebridge, represents the pre-existing Shelly script.
     sim.onMode = () => { sim.output = scenario.output; };
-    await select(heater, scenario.id);
+    if (scenario.active !== undefined) {
+      await setActive(heater, scenario.active);
+    } else {
+      await select(heater, scenario.id);
+    }
     assert.equal(sim.mode, scenario.mode);
     assert.equal(heater.controller.snapshot.mode, scenario.mode);
+    assert.equal(heater.television.getCharacteristic(C.Active).value,
+      scenario.mode === 'arret' ? C.Active.INACTIVE : C.Active.ACTIVE);
     assert.equal(heater.indicator.getCharacteristic(C.On).value, scenario.output);
     const writes = sim.requests.filter(request => request.method.endsWith('.Set'));
     assert.ok(writes.length >= 1);
@@ -44,19 +63,21 @@ test('5. Transition du script Force -> Auto en HC, chauffe reste ON', async t =>
 test('6. Changement UI Shelly -> Maison, sans attendre le polling', async t => {
   const { sim, heater } = await fixture(t, { pollInterval: 3600 });
   sim.external('arret', false);
-  await until(() => heater.television.getCharacteristic(C.ActiveIdentifier).value === 1);
+  await until(() => heater.television.getCharacteristic(C.Active).value === C.Active.INACTIVE);
+  assert.equal(heater.television.getCharacteristic(C.ActiveIdentifier).value, 2);
   sim.external('force', true);
   await until(() => heater.television.getCharacteristic(C.ActiveIdentifier).value === 3);
+  assert.equal(heater.television.getCharacteristic(C.Active).value, C.Active.ACTIVE);
   assert.equal(heater.indicator.getCharacteristic(C.On).value, true);
 });
 
-test('7. Maison -> Enum.Set, noms personnalises et seulement trois sources', async t => {
+test('7. Maison -> Enum.Set, noms personnalises et seulement deux sources', async t => {
   const { sim, heater } = await fixture(t, { states: { arret: 'OFF', auto: 'Automatique', force: 'Force' } });
   const sources = heater.accessory.services.filter(service => service.UUID === hap.Service.InputSource.UUID);
-  assert.equal(sources.length, 3);
+  assert.equal(sources.length, 2);
   assert.deepEqual(sources.map(source => source.getCharacteristic(C.ConfiguredName).value),
-    ['OFF', 'Automatique', 'Force']);
-  assert.deepEqual(sources.map(source => source.getCharacteristic(C.Identifier).value), [1, 2, 3]);
+    ['Automatique', 'Force']);
+  assert.deepEqual(sources.map(source => source.getCharacteristic(C.Identifier).value), [2, 3]);
   assert.ok(sources.every(source => heater.television.linkedServices.includes(source)));
   await select(heater, 3);
   assert.equal(sim.mode, 'force');
@@ -108,7 +129,8 @@ test('10. Perte puis retour connexion : refus de commande et resynchronisation',
   sim.offline = false;
   await until(() => heater.controller.available && heater.controller.snapshot.mode === 'arret');
   await until(() => sim.requests.filter(request => request.transport === 'ws').length > 2);
-  assert.equal(heater.television.getCharacteristic(C.ActiveIdentifier).value, 1);
+  assert.equal(heater.television.getCharacteristic(C.ActiveIdentifier).value, 2);
+  assert.equal(heater.television.getCharacteristic(C.Active).value, C.Active.INACTIVE);
   assert.equal(heater.indicator.getCharacteristic(C.On).value, false);
 });
 
@@ -127,16 +149,31 @@ test('Switch strictement read-only : HAP rejette ON/OFF sans RPC', async t => {
   assert.equal(sim.requests.length, count);
 });
 
-test('Bouton alimentation et telecommande TV ne commandent ni mode ni relais', async t => {
+test('Bouton TV : OFF -> arret, ON -> auto, sans jamais commander le relais', async t => {
   const { sim, heater } = await fixture(t);
-  const count = sim.requests.length;
-  for (const [type, value] of [[C.Active, 0], [C.RemoteKey, 0]]) {
-    const result = await heater.networkWrite(heater.television.getCharacteristic(type), value);
-    assert.equal(result.status, hap.HAPStatus.READ_ONLY_CHARACTERISTIC);
-  }
-  const ok = await heater.networkWrite(heater.television.getCharacteristic(C.Active), 1);
-  assert.equal(ok.status, hap.HAPStatus.SUCCESS);
-  assert.equal(sim.requests.length, count);
+  await setActive(heater, false);
+  assert.equal(sim.mode, 'arret');
+  assert.equal(heater.television.getCharacteristic(C.Active).value, C.Active.INACTIVE);
+  await setActive(heater, true);
+  assert.equal(sim.mode, 'auto');
+  assert.equal(heater.television.getCharacteristic(C.Active).value, C.Active.ACTIVE);
+  assert.deepEqual(sim.requests.filter(request => request.method.endsWith('.Set'))
+    .map(request => [request.method, request.params.value]), [
+    ['Enum.Set', 'arret'],
+    ['Enum.Set', 'auto'],
+  ]);
+  assert.equal(sim.requests.some(request => request.method === 'Switch.Set'), false);
+});
+
+test('Bouton TV ON conserve Auto ou Force; telecommande refusee', async t => {
+  const { sim, heater } = await fixture(t);
+  await select(heater, 3);
+  const count = sim.requests.filter(request => request.method === 'Enum.Set').length;
+  await setActive(heater, true);
+  assert.equal(sim.mode, 'force');
+  assert.equal(sim.requests.filter(request => request.method === 'Enum.Set').length, count);
+  const remote = await heater.networkWrite(heater.television.getCharacteristic(C.RemoteKey), 0);
+  assert.equal(remote.status, hap.HAPStatus.READ_ONLY_CHARACTERISTIC);
 });
 
 test('Polling recupere une notification manquee sans logs de valeurs repetes', async t => {
@@ -158,7 +195,7 @@ test('RPC HTTP de secours quand le WebSocket est indisponible', async t => {
   sim.disconnect();
   await until(() => sim.requests.filter(request => request.transport === 'http').length > httpCount &&
     heater.controller.available && !heater.controller.client.socket);
-  await select(heater, 1);
+  await setActive(heater, false);
   assert.equal(sim.mode, 'arret');
   assert.ok(sim.requests.some(request => request.method === 'Enum.Set' && request.transport === 'http'));
 });
@@ -209,14 +246,14 @@ test('Le script peut annuler immediatement force; la valeur confirmee prime', as
 
 test('Commandes concurrentes serialisees, dernier etat confirme conserve', async t => {
   const { sim, heater } = await fixture(t);
-  const results = await Promise.all([3, 1, 2].map(value =>
+  const results = await Promise.all([3, 2, 3].map(value =>
     heater.networkWrite(heater.television.getCharacteristic(C.ActiveIdentifier), value)));
   assert.ok(results.every(result => result.status === hap.HAPStatus.SUCCESS));
   await delay(0);
   assert.deepEqual(sim.requests.filter(request => request.method === 'Enum.Set')
-    .map(request => request.params.value), ['force', 'arret', 'auto']);
-  assert.equal(sim.mode, 'auto');
-  assert.equal(heater.television.getCharacteristic(C.ActiveIdentifier).value, 2);
+    .map(request => request.params.value), ['force', 'auto', 'force']);
+  assert.equal(sim.mode, 'force');
+  assert.equal(heater.television.getCharacteristic(C.ActiveIdentifier).value, 3);
 });
 
 test('Notifications continues : une commande ne reste pas bloquee derriere les lectures', async t => {
@@ -251,7 +288,7 @@ test('Demarrage non synchronise : aucun OFF ou mode valide presume', async t => 
   const heater = createHeater(sim);
   t.after(async () => { heater.controller.stop(); await sim.close(); });
   assert.equal(heater.controller.available, false);
-  const result = await heater.networkWrite(heater.television.getCharacteristic(C.ActiveIdentifier), 1);
+  const result = await heater.networkWrite(heater.television.getCharacteristic(C.Active), C.Active.INACTIVE);
   assert.equal(result.status, hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
   assert.equal(sim.requests.filter(request => request.method === 'Enum.Set').length, 0);
 });
@@ -263,8 +300,11 @@ test('Validation configuration et IDs de sources invalides', async t => {
   assert.throws(() => parseSettings({ host: 'shelly', states: { auto: '' } }), /states.auto/);
   assert.throws(() => parseSettings({ host: 'shelly', states: { auto: 'é'.repeat(33) } }), /states.auto/);
   const { sim, heater } = await fixture(t);
-  const result = await heater.networkWrite(heater.television.getCharacteristic(C.ActiveIdentifier), 4);
-  assert.equal(result.status, hap.HAPStatus.INVALID_VALUE_IN_REQUEST);
+  for (const identifier of [1, 4]) {
+    const result = await heater.networkWrite(
+      heater.television.getCharacteristic(C.ActiveIdentifier), identifier);
+    assert.equal(result.status, hap.HAPStatus.INVALID_VALUE_IN_REQUEST);
+  }
   assert.equal(sim.requests.filter(request => request.method === 'Enum.Set').length, 0);
 });
 
