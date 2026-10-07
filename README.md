@@ -11,17 +11,20 @@ et ne réalise pas la transition Force vers Auto. Aucun MQTT.
 
 ## Représentation dans Apple Maison
 
-Un seul accessoire externe nommé **Chauffe-eau** :
+Le plugin publie deux accessoires HomeKit distincts :
 
-- Un service `Television` dont le bouton principal pilote le mode :
+- Un accessoire externe **Chauffe-eau**, avec un service `Television` dont le
+  bouton principal pilote le mode :
   OFF sélectionne `arret`; ON depuis Arrêt sélectionne `auto`. En Auto ou Force,
   le bouton reste ON. Il ne représente pas la chauffe réelle.
-- Deux `InputSource` liés permettent de choisir Auto ou Marche forcée. Leurs noms
+- Ses deux `InputSource` liés permettent de choisir Auto ou Marche forcée. Leurs noms
   viennent de `states.auto` et `states.force` via `ConfiguredName`. Les identifiants
   historiques 2 = auto et 3 = force sont conservés. Arrêt n'est plus une source :
   il est commandé par le bouton principal.
-- Un service `Switch` nommé **Chauffe-eau - En chauffe**. Son `On` reflète seulement
-  le booléen `output` de `switch:0` : ON = relais fermé, OFF = relais ouvert.
+- Un accessoire `Switch` autonome **Chauffe-eau - En chauffe**, publié par le pont
+  Homebridge. Sa vignette peut être ajoutée séparément aux favoris. Son `On`
+  reflète seulement le booléen `output` de `switch:0` : ON = relais fermé,
+  OFF = relais ouvert.
   Permissions HAP : lecture et notifications, **sans écriture**. Une tentative
   d'écriture réseau est rejetée par HAP avec `READ_ONLY_CHARACTERISTIC`.
 
@@ -31,17 +34,12 @@ Un seul accessoire externe nommé **Chauffe-eau** :
   Maison considère la TV éteinte et peut désactiver le sélecteur de sources.
   Rallumer le bouton sélectionne d'abord Auto; Marche forcée peut ensuite être
   choisie dans les sources. Les touches télécommande sont refusées.
-- Dans Maison, utiliser **Afficher comme vignettes séparées**. Lorsque Television
-  et Switch sont regroupés, Maison peut remplacer le nom du mode par son résumé
-  natif « Toutes activées ». Ce texte n'est pas émis par le plugin et ne peut pas
-  être personnalisé. Avec les vignettes séparées, Auto et Marche forcée gardent
-  leurs intitulés, et la chauffe réelle apparaît sur sa propre vignette.
+- La TV et l'indicateur sont volontairement deux accessoires : cela évite le
+  résumé natif « Toutes activées » des services regroupés et permet de placer
+  l'indicateur seul dans les favoris et dans la vue d'ensemble de Maison.
 - Maison peut afficher le Switch comme touchable, même en lecture seule.
   Un appui peut provoquer une erreur ou un affichage optimiste temporaire.
   **Il ne peut pas commander le relais.** Ne pas compter sur un bouton grisé.
-- Un accessoire HAP ne signifie pas forcément une seule tuile dans Maison.
-  Le regroupement et l'affichage des services TV + Switch dépendent de la version
-  de Maison. Le plugin ne garantit pas deux contrôles dans une seule tuile.
 - `ConfiguredName` permet les noms de sources, mais Maison peut les mettre en
   cache ou les renommer. Les renommages dans Maison sont acceptés pendant la
   session; la configuration est réappliquée au redémarrage. Des versions de tvOS
@@ -118,18 +116,21 @@ Ajouter dans `platforms` de la configuration existante :
 ```
 
 Contrairement à l'exemple initial en `accessories`, il s'agit d'une **platform** :
-Homebridge publie les téléviseurs comme accessoires externes pour l'appairage
-HomeKit. Voir aussi [config.example.json](./config.example.json). Ne pas remplacer
-toute votre configuration par l'exemple.
+Homebridge publie le téléviseur comme accessoire externe et l'indicateur via le
+pont Homebridge. Voir aussi [config.example.json](./config.example.json). Ne pas
+remplacer toute votre configuration par l'exemple.
 
 Redémarrer Homebridge, puis dans Maison : **Ajouter un accessoire → Plus d'options**,
 choisir Chauffe-eau et saisir le code HomeKit de l'instance Homebridge qui le publie
 (celui du child bridge si vous utilisez cette option).
-L'accessoire TV doit être appairé séparément du pont principal.
+L'accessoire TV doit être appairé séparément. L'indicateur apparaît dans le pont
+principal, ou dans le child bridge du plugin si celui-ci est activé; ce pont doit
+déjà être appairé à Maison.
 
-Le UUID est stable selon `host` et `enumId`, pas selon le nom ou les libellés.
-Préférer une IP réservée ou un nom local stable : changer host/enumId crée une
-nouvelle identité HomeKit et nécessite un nouvel appairage.
+Les UUID sont stables selon `host` et `enumId` pour la TV, et selon `host` et
+`switchId` pour l'indicateur, pas selon le nom ou les libellés. Préférer une IP
+réservée ou un nom local stable : changer ces valeurs crée une nouvelle identité
+HomeKit.
 
 | Paramètre | Défaut | Signification |
 |---|---|---|
@@ -201,10 +202,11 @@ les notifications partielles, le polling, les redémarrages et les erreurs.
 ## Mise à niveau depuis 1.0.0
 
 La version 1.1.0 retire Arrêt des sources et affecte cette action au bouton
-principal Television. Redémarrer Homebridge après la mise à niveau. Si Maison
-conserve l'ancienne source Arrêt en cache, supprimer puis réappairer l'accessoire
-TV externe. Il faudra alors réappliquer la pièce, les favoris et le réglage
-**Afficher comme vignettes séparées**.
+principal Television. Elle déplace aussi l'indicateur de chauffe vers un accessoire
+Switch autonome afin qu'il puisse être ajouté aux favoris. Redémarrer Homebridge
+après la mise à niveau. Si Maison conserve l'ancienne source Arrêt ou l'ancien
+Switch secondaire en cache, supprimer puis réappairer l'accessoire TV externe.
+Il faudra alors réappliquer sa pièce et ses favoris.
 
 ## Références
 

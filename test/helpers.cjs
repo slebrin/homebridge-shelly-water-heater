@@ -4,7 +4,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const { HomebridgeAPI } = require('homebridge/lib/api');
 const { hap } = new HomebridgeAPI();
 const { PlatformAccessory } = require('homebridge/lib/platformAccessory');
-const { HeaterAccessory } = require('../dist/accessory');
+const { HeaterAccessory, HeatingIndicatorAccessory } = require('../dist/accessory');
 const { parseSettings } = require('../dist/config');
 
 async function until(predicate, timeout = 4000) {
@@ -125,18 +125,35 @@ function createHeater(sim, overrides = {}) {
   const settings = parseSettings({ host: sim.host, pollInterval: 1, rpcTimeout: 1, ...overrides });
   const accessory = new PlatformAccessory(settings.name, hap.uuid.generate(`test:${sim.host}`), hap.Categories.TELEVISION);
   const heater = new HeaterAccessory(accessory, settings, { hap }, log);
+  const indicatorAccessory = new PlatformAccessory(
+    `${settings.name} - En chauffe`,
+    hap.uuid.generate(`test:${sim.host}:heating`),
+    hap.Categories.SWITCH,
+  );
+  const indicator = new HeatingIndicatorAccessory(
+    indicatorAccessory, heater.controller, settings, { hap }, log,
+  );
   let iid = 1;
-  accessory._associatedHAPAccessory.aid = 1;
-  for (const service of accessory.services) {
-    service.iid = iid++;
-    for (const characteristic of service.characteristics) {
-      characteristic.iid = iid++;
+  for (const platformAccessory of [accessory, indicatorAccessory]) {
+    platformAccessory._associatedHAPAccessory.aid = 1;
+    for (const service of platformAccessory.services) {
+      service.iid = iid++;
+      for (const characteristic of service.characteristics) {
+        characteristic.iid = iid++;
+      }
     }
   }
+  heater.indicator = indicator.indicator;
+  heater.indicatorAccessory = indicatorAccessory;
   heater.logs = logs;
-  heater.networkWrite = (characteristic, value) => accessory._associatedHAPAccessory.handleCharacteristicWrite(
-    {}, { aid: 1, iid: characteristic.iid, value }, 0,
-  );
+  heater.networkWrite = (characteristic, value) => {
+    const owner = indicatorAccessory.services.some(
+      service => service.characteristics.includes(characteristic),
+    ) ? indicatorAccessory : accessory;
+    return owner._associatedHAPAccessory.handleCharacteristicWrite(
+      {}, { aid: 1, iid: characteristic.iid, value }, 0,
+    );
+  };
   heater.controller.start();
   return heater;
 }

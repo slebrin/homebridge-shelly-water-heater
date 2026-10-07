@@ -308,10 +308,12 @@ test('Validation configuration et IDs de sources invalides', async t => {
   assert.equal(sim.requests.filter(request => request.method === 'Enum.Set').length, 0);
 });
 
-test('Enregistrement platform externe, identite stable et arret Homebridge', async t => {
+test('TV externe et indicateur bridge separes, stables et sans doublon au redemarrage', async t => {
   const sim = await simulator();
   const handlers = {};
   const published = [];
+  const registered = [];
+  const unregistered = [];
   const api = {
     hap,
     platformAccessory: require('homebridge/lib/platformAccessory').PlatformAccessory,
@@ -322,18 +324,31 @@ test('Enregistrement platform externe, identite stable et arret Homebridge', asy
     },
     on: (event, handler) => { handlers[event] = handler; },
     publishExternalAccessories: (plugin, accessories) => published.push(...accessories),
+    registerPlatformAccessories: (plugin, platform, accessories) => registered.push(...accessories),
+    unregisterPlatformAccessories: (plugin, platform, accessories) => unregistered.push(...accessories),
   };
   const log = Object.assign(() => {}, { info() {}, warn() {}, error() {}, debug() {} });
   register(api);
-  new api.constructor(log, { platform: PLATFORM_NAME, host: sim.host }, api);
+  const firstPlatform = new api.constructor(log, { platform: PLATFORM_NAME, host: sim.host }, api);
   handlers.didFinishLaunching();
   assert.equal(published.length, 1);
   assert.equal(published[0].category, hap.Categories.TELEVISION);
-  await until(() => published[0].getService(hap.Service.Switch).getCharacteristic(C.On).statusCode === 0);
-  const firstUuid = published[0].UUID;
+  assert.equal(published[0].getService(hap.Service.Switch), undefined);
+  assert.equal(registered.length, 1);
+  assert.equal(registered[0].category, hap.Categories.SWITCH);
+  assert.ok(registered[0].getService(hap.Service.Switch));
+  await until(() => registered[0].getService(hap.Service.Switch).getCharacteristic(C.On).statusCode === 0);
+  const televisionUuid = published[0].UUID;
+  const indicatorUuid = registered[0].UUID;
   handlers.shutdown();
-  new api.constructor(log, { host: sim.host, name: 'Renomme' }, api);
+
+  const secondPlatform = new api.constructor(log, { host: sim.host, name: 'Renomme' }, api);
+  secondPlatform.configureAccessory(registered[0]);
   handlers.didFinishLaunching();
-  assert.equal(published[1].UUID, firstUuid);
+  assert.equal(published[1].UUID, televisionUuid);
+  assert.equal(registered.length, 1);
+  assert.equal(registered[0].UUID, indicatorUuid);
+  assert.equal(registered[0].displayName, 'Renomme - En chauffe');
+  assert.equal(unregistered.length, 0);
   t.after(async () => { handlers.shutdown(); await sim.close(); });
 });

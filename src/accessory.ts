@@ -11,7 +11,6 @@ const INPUTS = [
 export class HeaterAccessory {
   readonly controller: HeaterController;
   readonly television: Service;
-  readonly indicator: Service;
 
   constructor(
     readonly accessory: PlatformAccessory,
@@ -82,15 +81,6 @@ export class HeaterAccessory {
       this.television.addLinkedService(input);
     });
 
-    this.indicator = accessory.addService(S.Switch, `${settings.name} - En chauffe`, 'heating');
-    this.indicator.getCharacteristic(C.On)
-      .setProps({ perms: [C.Perms.PAIRED_READ, C.Perms.NOTIFY] })
-      .onGet(() => this.requireState().heating)
-      .onSet(() => {
-        // Defence in depth for local callers; HAP rejects network writes before this handler.
-        log.warn('Indicateur de chauffe en lecture seule; commande refusee.');
-        throw new api.hap.HapStatusError(api.hap.HAPStatus.READ_ONLY_CHARACTERISTIC);
-      });
     this.controller.on('state', () => this.publish());
     this.controller.on('unavailable', () => this.publish());
     this.publish();
@@ -130,7 +120,6 @@ export class HeaterAccessory {
       const error = new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
       this.television.getCharacteristic(C.Active).updateValue(error);
       this.television.getCharacteristic(C.ActiveIdentifier).updateValue(error);
-      this.indicator.getCharacteristic(C.On).updateValue(error);
       return;
     }
     this.television.updateCharacteristic(
@@ -138,6 +127,55 @@ export class HeaterAccessory {
       state.mode === 'arret' ? C.Active.INACTIVE : C.Active.ACTIVE,
     );
     this.television.updateCharacteristic(C.ActiveIdentifier, this.identifier(state.mode));
-    this.indicator.updateCharacteristic(C.On, state.heating);
+  }
+}
+
+export class HeatingIndicatorAccessory {
+  readonly indicator: Service;
+
+  constructor(
+    readonly accessory: PlatformAccessory,
+    private readonly controller: HeaterController,
+    settings: Settings,
+    private readonly api: API,
+    log: Logging,
+  ) {
+    const { Service: S, Characteristic: C } = api.hap;
+    accessory.getService(S.AccessoryInformation)!
+      .setCharacteristic(C.Manufacturer, 'Shelly / Homebridge')
+      .setCharacteristic(C.Model, 'Water heater heating indicator')
+      .setCharacteristic(C.SerialNumber, `${settings.host}-switch-${settings.switchId}`);
+
+    this.indicator = accessory.getService(S.Switch)
+      ?? accessory.addService(S.Switch, `${settings.name} - En chauffe`, 'heating');
+    this.indicator.setPrimaryService();
+    this.indicator.getCharacteristic(C.On)
+      .setProps({ perms: [C.Perms.PAIRED_READ, C.Perms.NOTIFY] })
+      .onGet(() => this.requireState())
+      .onSet(() => {
+        // Defence in depth for local callers; HAP rejects network writes before this handler.
+        log.warn('Indicateur de chauffe en lecture seule; commande refusee.');
+        throw new api.hap.HapStatusError(api.hap.HAPStatus.READ_ONLY_CHARACTERISTIC);
+      });
+    controller.on('state', () => this.publish());
+    controller.on('unavailable', () => this.publish());
+    this.publish();
+  }
+
+  private requireState(): boolean {
+    if (!this.controller.available || !this.controller.snapshot) {
+      throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    }
+    return this.controller.snapshot.heating;
+  }
+
+  publish(): void {
+    const { Characteristic: C, HAPStatus, HapStatusError } = this.api.hap;
+    if (!this.controller.available || !this.controller.snapshot) {
+      this.indicator.getCharacteristic(C.On)
+        .updateValue(new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE));
+      return;
+    }
+    this.indicator.updateCharacteristic(C.On, this.controller.snapshot.heating);
   }
 }
